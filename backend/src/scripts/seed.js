@@ -57,10 +57,13 @@ async function seed() {
   )
 
   const productCount = await Product.countDocuments()
-  if (!productCount) await Product.insertMany(initialProducts)
+  const shouldSeedProducts = process.env.SEED_SAMPLE_PRODUCTS !== 'false'
+  if (!productCount && shouldSeedProducts) await Product.insertMany(initialProducts)
 
   console.log(`Administrador ${email} configurado com sucesso.`)
-  console.log(productCount ? 'Produtos existentes foram preservados.' : 'Produtos iniciais cadastrados.')
+  if (productCount) console.log('Produtos existentes foram preservados.')
+  else if (shouldSeedProducts) console.log('Produtos iniciais cadastrados.')
+  else console.log('Catálogo mantido vazio para cadastro pelo painel administrativo.')
 }
 
 seed()

@@ -222,7 +222,7 @@ function OrderSuccess({ order, customer, onContinue }) {
 }
 
 function App() {
-  const [products, setProducts] = useState(sampleProducts)
+  const [products, setProducts] = useState(import.meta.env.DEV ? sampleProducts : [])
   const [query, setQuery] = useState('')
   const [category, setCategory] = useState('Todos')
   const [page, setPage] = useState(1)
@@ -239,7 +239,7 @@ function App() {
       .then((response) => { if (!response.ok) throw new Error('API indisponível'); return response.json() })
       .then((data) => {
         const receivedProducts = Array.isArray(data) ? data : data.products
-        if (receivedProducts?.length) setProducts(receivedProducts)
+        if (Array.isArray(receivedProducts)) setProducts(receivedProducts)
       })
       .catch(() => {})
   }, [])
