@@ -1,0 +1,18 @@
+services:
+  mongodb:
+    image: mongo:7
+    container_name: giacomoni-mongodb
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:27017:27017"
+    volumes:
+      - giacomoni_mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+volumes:
+  giacomoni_mongo_data:
+
