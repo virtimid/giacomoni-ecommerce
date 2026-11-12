@@ -19,6 +19,9 @@ export default function AdminPanel({ onClose }) {
   const [token, setToken] = useState(() => localStorage.getItem('giacomoni-admin-token') || '')
   const [admin, setAdmin] = useState(null)
   const [loginForm, setLoginForm] = useState({ email: '', password: '' })
+  const [setupRequired, setSetupRequired] = useState(false)
+  const [setupChecked, setSetupChecked] = useState(false)
+  const [setupForm, setSetupForm] = useState({ name: '', email: '', password: '', setupCode: '' })
   const [loginError, setLoginError] = useState('')
   const [tab, setTab] = useState('dashboard')
   const [stats, setStats] = useState(null)
@@ -50,6 +53,18 @@ export default function AdminPanel({ onClose }) {
   }
 
   useEffect(() => {
+    if (token) { setSetupChecked(true); return }
+    fetch(`${API_URL}/api/auth/setup-status`)
+      .then((response) => response.json().then((data) => ({ response, data })))
+      .then(({ response, data }) => {
+        if (!response.ok) throw new Error(data.message || 'Não foi possível verificar a configuração.')
+        setSetupRequired(Boolean(data.setupRequired))
+      })
+      .catch((error) => setLoginError(error.message))
+      .finally(() => setSetupChecked(true))
+  }, [token])
+
+  useEffect(() => {
     if (!token) return
     api('/api/auth/me')
       .then((data) => setAdmin(data.admin))
@@ -78,6 +93,29 @@ export default function AdminPanel({ onClose }) {
       localStorage.setItem('giacomoni-admin-token', data.token)
       setToken(data.token)
       setAdmin(data.admin)
+    } catch (error) {
+      setLoginError(error.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function createFirstAdmin(event) {
+    event.preventDefault()
+    setLoading(true)
+    setLoginError('')
+    try {
+      const response = await fetch(`${API_URL}/api/auth/setup`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(setupForm),
+      })
+      const data = await response.json()
+      if (!response.ok) throw new Error(data.message || 'Não foi possível criar o primeiro acesso.')
+      localStorage.setItem('giacomoni-admin-token', data.token)
+      setToken(data.token)
+      setAdmin(data.admin)
+      setSetupRequired(false)
     } catch (error) {
       setLoginError(error.message)
     } finally {
@@ -198,6 +236,8 @@ export default function AdminPanel({ onClose }) {
   }
 
   if (!admin) {
+    if (!setupChecked) return <main className="admin-login"><form><p>Verificando a configuração...</p></form></main>
+    if (setupRequired) return <main className="admin-login"><form onSubmit={createFirstAdmin}><button type="button" className="admin-back" onClick={onClose}><ArrowLeft size={17} /> Voltar à loja</button><p className="eyebrow">Primeiro acesso</p><h1>Criar administrador</h1><p>Esta etapa aparece somente uma vez. Depois, apenas o login ficará disponível.</p><label>Nome<input value={setupForm.name} onChange={(event) => setSetupForm({ ...setupForm, name: event.target.value })} required /></label><label>E-mail<input type="email" value={setupForm.email} onChange={(event) => setSetupForm({ ...setupForm, email: event.target.value })} required /></label><label>Senha<input type="password" minLength="8" value={setupForm.password} onChange={(event) => setSetupForm({ ...setupForm, password: event.target.value })} required /></label><label>Código de configuração<input type="password" value={setupForm.setupCode} onChange={(event) => setSetupForm({ ...setupForm, setupCode: event.target.value })} required /></label>{loginError && <div className="admin-error">{loginError}</div>}<button className="primary-button" disabled={loading}>{loading ? 'Criando...' : 'Criar primeiro administrador'}</button></form></main>
     return <main className="admin-login"><form onSubmit={login}><button type="button" className="admin-back" onClick={onClose}><ArrowLeft size={17} /> Voltar à loja</button><p className="eyebrow">Área restrita</p><h1>Painel administrativo</h1><p>Entre com as credenciais cadastradas no servidor.</p><label>E-mail<input type="email" value={loginForm.email} onChange={(event) => setLoginForm({ ...loginForm, email: event.target.value })} required /></label><label>Senha<input type="password" value={loginForm.password} onChange={(event) => setLoginForm({ ...loginForm, password: event.target.value })} required /></label>{loginError && <div className="admin-error">{loginError}</div>}<button className="primary-button" disabled={loading}>{loading ? 'Entrando...' : 'Entrar'}</button></form></main>
   }
 
