@@ -6,4 +6,5 @@ coverage/
 *.log
 .artifacts/
 .codex-finalizer/
+.tools/
 
