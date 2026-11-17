@@ -7,6 +7,7 @@ import CustomerAccount from './CustomerAccount.jsx'
 const PAGE_SIZE = 6
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'
 const currency = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
+const defaultHero = { eyebrow: 'Conforto para todos os momentos', title: 'Vista-se de carinho, durma com conforto.', description: 'Peças escolhidas para transformar sua rotina em momentos mais leves e especiais.', buttonText: 'Conhecer coleção', image: 'https://images.unsplash.com/photo-1618354691373-d851c5c3a990?auto=format&fit=crop&w=1000&q=85', imageEyebrow: 'Nova coleção', imageTitle: 'Essência', imageSubtitle: 'Delicadeza em cada detalhe' }
 
 function loadSavedCart() {
   try {
@@ -237,6 +238,7 @@ function App() {
   const [accountOpen, setAccountOpen] = useState(Boolean(new URLSearchParams(window.location.search).get('customerReset')))
   const [customerToken, setCustomerToken] = useState(() => localStorage.getItem('giacomoni-customer-token') || '')
   const [customer, setCustomer] = useState(null)
+  const [hero, setHero] = useState(defaultHero)
   const resetData = useMemo(() => { const query = new URLSearchParams(window.location.search); const token = query.get('customerReset'); return token ? { token, email: query.get('email') || '' } : null }, [])
 
   useEffect(() => {
@@ -247,6 +249,10 @@ function App() {
         if (Array.isArray(receivedProducts)) setProducts(receivedProducts)
       })
       .catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    fetch(`${API_URL}/api/site-content/hero`).then((response) => response.json()).then((data) => { if (data.hero) setHero({ ...defaultHero, ...data.hero }) }).catch(() => {})
   }, [])
 
   useEffect(() => setPage(1), [query, category])
@@ -328,8 +334,8 @@ function App() {
       ) : (
         <main>
           <section className="hero" id="inicio">
-            <div className="hero-content"><p className="eyebrow">Conforto para todos os momentos</p><h1>Vista-se de carinho, durma com conforto.</h1><p>Peças escolhidas para transformar sua rotina em momentos mais leves e especiais.</p><a className="primary-button" href="#produtos">Conhecer coleção</a></div>
-            <div className="hero-card" aria-label="Destaque da nova coleção"><span>Nova coleção</span><strong>Essência</strong><small>Delicadeza em cada detalhe</small></div>
+            <div className="hero-content"><p className="eyebrow">{hero.eyebrow}</p><h1>{hero.title}</h1><p>{hero.description}</p><a className="primary-button" href="#produtos">{hero.buttonText}</a></div>
+            <div className="hero-card" aria-label="Destaque da coleção" style={{ backgroundImage: `linear-gradient(rgba(70, 25, 40, .15), rgba(70, 25, 40, .5)), url("${hero.image.replaceAll('"', '%22')}")` }}><span>{hero.imageEyebrow}</span><strong>{hero.imageTitle}</strong><small>{hero.imageSubtitle}</small></div>
           </section>
           <section className="benefits" aria-label="Benefícios da loja"><div><strong>Compra segura</strong><span>Seus dados protegidos</span></div><div><strong>Atendimento próximo</strong><span>Conte com a nossa equipe</span></div><div><strong>Seleção especial</strong><span>Qualidade e conforto</span></div></section>
           <section className="catalog" id="produtos">

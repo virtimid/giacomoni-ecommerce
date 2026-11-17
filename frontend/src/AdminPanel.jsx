@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { ArrowLeft, Boxes, Eye, LayoutDashboard, LogOut, PackagePlus, ShoppingCart, Trash2, X } from 'lucide-react'
+import { ArrowLeft, Boxes, Eye, Image, LayoutDashboard, LogOut, PackagePlus, ShoppingCart, Trash2, X } from 'lucide-react'
 import './admin.css'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'
@@ -14,6 +14,7 @@ const emptyProduct = {
   name: '', category: '', description: '', price: '', image: '', featured: false,
   variants: [{ size: '', color: '', stock: 0 }],
 }
+const defaultHero = { eyebrow: 'Conforto para todos os momentos', title: 'Vista-se de carinho, durma com conforto.', description: 'Peças escolhidas para transformar sua rotina em momentos mais leves e especiais.', buttonText: 'Conhecer coleção', image: 'https://images.unsplash.com/photo-1618354691373-d851c5c3a990?auto=format&fit=crop&w=1000&q=85', imageEyebrow: 'Nova coleção', imageTitle: 'Essência', imageSubtitle: 'Delicadeza em cada detalhe' }
 
 export default function AdminPanel({ onClose }) {
   const [token, setToken] = useState(() => localStorage.getItem('giacomoni-admin-token') || '')
@@ -33,6 +34,7 @@ export default function AdminPanel({ onClose }) {
   const [editingId, setEditingId] = useState(null)
   const [message, setMessage] = useState('')
   const [loading, setLoading] = useState(false)
+  const [heroForm, setHeroForm] = useState(defaultHero)
 
   async function api(path, options = {}) {
     const response = await fetch(`${API_URL}${path}`, {
@@ -76,6 +78,7 @@ export default function AdminPanel({ onClose }) {
     loadDashboard()
     loadProducts()
     loadOrders()
+    loadHero()
   }, [admin])
 
   async function login(event) {
@@ -149,6 +152,28 @@ export default function AdminPanel({ onClose }) {
       const data = await api(`/api/orders?${params}`)
       setOrders(data.orders || [])
     } catch (error) { setMessage(error.message) }
+  }
+
+  async function loadHero() {
+    try { const data = await api('/api/site-content/hero'); setHeroForm({ ...defaultHero, ...data.hero }) } catch (error) { setMessage(error.message) }
+  }
+
+  function chooseHeroImage(event) {
+    const file = event.target.files?.[0]
+    if (!file) return
+    if (!file.type.startsWith('image/')) return setMessage('Selecione um arquivo de imagem.')
+    if (file.size > 700 * 1024) return setMessage('A imagem deve ter no máximo 700 KB. Comprima a foto antes de enviar.')
+    const reader = new FileReader()
+    reader.onload = () => setHeroForm((current) => ({ ...current, image: reader.result }))
+    reader.readAsDataURL(file)
+  }
+
+  async function saveHero(event) {
+    event.preventDefault(); setLoading(true); setMessage('')
+    try {
+      const data = await api('/api/site-content/hero', { method: 'PUT', body: JSON.stringify(heroForm) })
+      setHeroForm({ ...defaultHero, ...data.hero }); setMessage('Banner principal atualizado com sucesso.')
+    } catch (error) { setMessage(error.message) } finally { setLoading(false) }
   }
 
   function changeProduct(event) {
@@ -248,6 +273,7 @@ export default function AdminPanel({ onClose }) {
         <button className={tab === 'dashboard' ? 'active' : ''} onClick={() => setTab('dashboard')}><LayoutDashboard size={18} /> Visão geral</button>
         <button className={tab === 'products' || tab === 'productForm' ? 'active' : ''} onClick={() => setTab('products')}><Boxes size={18} /> Produtos</button>
         <button className={tab === 'orders' ? 'active' : ''} onClick={() => setTab('orders')}><ShoppingCart size={18} /> Pedidos</button>
+        <button className={tab === 'hero' ? 'active' : ''} onClick={() => setTab('hero')}><Image size={18} /> Banner principal</button>
       </nav>
       <button className="admin-store" onClick={onClose}><ArrowLeft size={17} /> Voltar à loja</button>
       <button className="admin-logout" onClick={logout}><LogOut size={17} /> Sair</button>
@@ -261,6 +287,8 @@ export default function AdminPanel({ onClose }) {
       {tab === 'products' && <><div className="admin-title"><div><p className="eyebrow">Inventário</p><h2>Produtos e estoque</h2></div><button className="primary-button" onClick={() => { setEditingId(null); setProductForm(emptyProduct); setTab('productForm') }}><PackagePlus size={18} /> Novo produto</button></div><div className="admin-table-wrap"><table><thead><tr><th>Produto</th><th>Categoria</th><th>Preço</th><th>Estoque</th><th>Ações</th></tr></thead><tbody>{products.map((product) => <tr key={product._id}><td><div className="product-cell"><img src={product.image} alt="" /><strong>{product.name}</strong></div></td><td>{product.category}</td><td>{currency.format(product.price)}</td><td>{product.variants.reduce((sum, variant) => sum + variant.stock, 0)}</td><td><button onClick={() => editProduct(product)}>Editar</button><button className="danger" onClick={() => deactivateProduct(product)}><Trash2 size={15} /></button></td></tr>)}</tbody></table></div></>}
 
       {tab === 'productForm' && <><div className="admin-title"><div><p className="eyebrow">Inventário</p><h2>{editingId ? 'Editar produto' : 'Novo produto'}</h2></div><button className="secondary-button" onClick={() => setTab('products')}>Cancelar</button></div><form className="admin-product-form" onSubmit={saveProduct}><label>Nome<input name="name" value={productForm.name} onChange={changeProduct} required /></label><label>Categoria<input name="category" value={productForm.category} onChange={changeProduct} required /></label><label>Preço<input name="price" type="number" step="0.01" min="0" value={productForm.price} onChange={changeProduct} required /></label><label className="admin-full">URL da imagem<input name="image" type="url" value={productForm.image} onChange={changeProduct} required /></label><label className="admin-full">Descrição<textarea name="description" value={productForm.description} onChange={changeProduct} required /></label><label className="check-field"><input name="featured" type="checkbox" checked={productForm.featured} onChange={changeProduct} /> Produto em destaque</label><fieldset className="admin-full"><legend>Variações</legend>{productForm.variants.map((variant, index) => <div className="variant-row" key={index}><input placeholder="Tamanho" value={variant.size} onChange={(event) => changeVariant(index, 'size', event.target.value)} /><input placeholder="Cor" value={variant.color} onChange={(event) => changeVariant(index, 'color', event.target.value)} /><input type="number" min="0" placeholder="Estoque" value={variant.stock} onChange={(event) => changeVariant(index, 'stock', event.target.value)} /><button type="button" onClick={() => setProductForm((current) => ({ ...current, variants: current.variants.filter((_, currentIndex) => currentIndex !== index) }))}>Remover</button></div>)}<button type="button" className="secondary-button" onClick={() => setProductForm((current) => ({ ...current, variants: [...current.variants, { size: '', color: '', stock: 0 }] }))}>Adicionar variação</button></fieldset><button className="primary-button admin-save" disabled={loading}>{loading ? 'Salvando...' : 'Salvar produto'}</button></form></>}
+
+      {tab === 'hero' && <><div className="admin-title"><div><p className="eyebrow">Página inicial</p><h2>Banner principal</h2></div></div><form className="admin-hero-form" onSubmit={saveHero}><div className="hero-editor-fields"><label>Frase pequena externa<input value={heroForm.eyebrow} onChange={(event) => setHeroForm({ ...heroForm, eyebrow: event.target.value })} required /></label><label>Título principal<textarea value={heroForm.title} onChange={(event) => setHeroForm({ ...heroForm, title: event.target.value })} required /></label><label>Descrição<textarea value={heroForm.description} onChange={(event) => setHeroForm({ ...heroForm, description: event.target.value })} required /></label><label>Texto do botão<input value={heroForm.buttonText} onChange={(event) => setHeroForm({ ...heroForm, buttonText: event.target.value })} required /></label><label>Frase pequena sobre a foto<input value={heroForm.imageEyebrow} onChange={(event) => setHeroForm({ ...heroForm, imageEyebrow: event.target.value })} required /></label><label>Título sobre a foto<input value={heroForm.imageTitle} onChange={(event) => setHeroForm({ ...heroForm, imageTitle: event.target.value })} required /></label><label>Frase inferior sobre a foto<input value={heroForm.imageSubtitle} onChange={(event) => setHeroForm({ ...heroForm, imageSubtitle: event.target.value })} required /></label><label>URL da imagem<input value={heroForm.image.startsWith('data:') ? '' : heroForm.image} placeholder="https://..." onChange={(event) => setHeroForm({ ...heroForm, image: event.target.value })} /></label><label className="file-field">Ou escolher imagem do computador<input type="file" accept="image/png,image/jpeg,image/webp" onChange={chooseHeroImage} /><small>Máximo: 700 KB</small></label><button className="primary-button" disabled={loading}>{loading ? 'Salvando...' : 'Salvar banner'}</button></div><div className="hero-admin-preview" style={{ backgroundImage: `linear-gradient(rgba(45,25,31,.2), rgba(45,25,31,.65)), url("${heroForm.image.replaceAll('"', '%22')}")` }}><span>{heroForm.imageEyebrow}</span><strong>{heroForm.imageTitle}</strong><small>{heroForm.imageSubtitle}</small></div></form></>}
 
       {tab === 'orders' && <>
         <div className="admin-title"><div><p className="eyebrow">Vendas</p><h2>Gestão de pedidos</h2></div></div>

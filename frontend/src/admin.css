@@ -83,6 +83,18 @@
 .variant-row button { border: 0; background: #fae6e9; color: #9c3549; cursor: pointer; }
 .admin-save { grid-column: 1 / -1; justify-self: start; }
 
+.admin-hero-form { display: grid; grid-template-columns: minmax(0, 1fr) minmax(300px, .8fr); gap: 28px; background: white; border: 1px solid var(--line); padding: 30px; align-items: start; }
+.hero-editor-fields { display: flex; flex-direction: column; gap: 16px; }
+.hero-editor-fields label { display: flex; flex-direction: column; gap: 7px; font-size: 13px; font-weight: 700; }
+.hero-editor-fields input, .hero-editor-fields textarea { width: 100%; border: 1px solid var(--line); background: #fffdfc; padding: 12px; outline: none; }
+.hero-editor-fields textarea { min-height: 85px; resize: vertical; }
+.file-field { border: 1px dashed #cdb9be; padding: 15px; background: #fff9f7; }
+.file-field input { border: 0; background: transparent; padding: 5px 0; }
+.file-field small { color: #89767b; font-weight: 400; }
+.hero-admin-preview { min-height: 500px; background-position: center; background-size: cover; color: white; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; text-align: center; padding: 38px 20px; position: sticky; top: 25px; }
+.hero-admin-preview span, .hero-admin-preview small { text-transform: uppercase; letter-spacing: .18em; font-size: 11px; }
+.hero-admin-preview strong { font-family: 'Playfair Display', serif; font-size: 48px; margin: 5px 0; }
+
 @media (max-width: 1000px) {
   .stat-grid { grid-template-columns: repeat(2, 1fr); }
   .admin-product-form { grid-template-columns: 1fr 1fr; }
@@ -104,4 +116,6 @@
   .order-detail-grid { grid-template-columns: 1fr; }
   .order-modal-backdrop { padding: 0; }
   .order-modal { max-height: 100vh; height: 100vh; }
+  .admin-hero-form { grid-template-columns: 1fr; padding: 20px; }
+  .hero-admin-preview { position: static; min-height: 420px; }
 }

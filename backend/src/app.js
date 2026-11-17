@@ -5,6 +5,7 @@ import { orderRouter } from './routes/orderRoutes.js'
 import { authRouter } from './routes/authRoutes.js'
 import { adminRouter } from './routes/adminRoutes.js'
 import { customerRouter } from './routes/customerRoutes.js'
+import { siteContentRouter } from './routes/siteContentRoutes.js'
 
 export const app = express()
 
@@ -37,6 +38,7 @@ app.use('/api/orders', orderRouter)
 app.use('/api/auth', authRouter)
 app.use('/api/admin', adminRouter)
 app.use('/api/customers', customerRouter)
+app.use('/api/site-content', siteContentRouter)
 
 app.use((_req, res) => {
   res.status(404).json({ message: 'Rota não encontrada.' })
