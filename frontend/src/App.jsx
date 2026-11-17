@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ArrowLeft, ChevronLeft, ChevronRight, Menu, Search, ShoppingBag, X } from 'lucide-react'
+import { ArrowLeft, ChevronLeft, ChevronRight, Menu, Search, ShoppingBag, UserRound, X } from 'lucide-react'
 import { sampleProducts } from './data/products.js'
 import AdminPanel from './AdminPanel.jsx'
+import CustomerAccount from './CustomerAccount.jsx'
 
 const PAGE_SIZE = 6
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'
@@ -95,10 +96,10 @@ function ProductDetails({ product, onBack, onAdd }) {
   )
 }
 
-function Checkout({ cart, total, onBack, onComplete }) {
+function Checkout({ cart, total, onBack, onComplete, account, customerToken }) {
   const [form, setForm] = useState({
-    name: '', phone: '', email: '', zipCode: '', street: '', number: '',
-    complement: '', neighborhood: '', city: '', state: '',
+    name: account?.name || '', phone: account?.phone || '', email: account?.email || '', zipCode: account?.address?.zipCode || '', street: account?.address?.street || '', number: account?.address?.number || '',
+    complement: account?.address?.complement || '', neighborhood: account?.address?.neighborhood || '', city: account?.address?.city || '', state: account?.address?.state || '',
   })
   const [errors, setErrors] = useState({})
   const [loadingZip, setLoadingZip] = useState(false)
@@ -153,7 +154,7 @@ function Checkout({ cart, total, onBack, onComplete }) {
     try {
       const response = await fetch(`${API_URL}/api/orders`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(customerToken ? { Authorization: `Bearer ${customerToken}` } : {}) },
         body: JSON.stringify({
           customer: { name: form.name, phone: form.phone, email: form.email },
           deliveryAddress: {
@@ -233,6 +234,10 @@ function App() {
   const [checkoutOpen, setCheckoutOpen] = useState(false)
   const [completedOrder, setCompletedOrder] = useState(null)
   const [adminOpen, setAdminOpen] = useState(false)
+  const [accountOpen, setAccountOpen] = useState(Boolean(new URLSearchParams(window.location.search).get('customerReset')))
+  const [customerToken, setCustomerToken] = useState(() => localStorage.getItem('giacomoni-customer-token') || '')
+  const [customer, setCustomer] = useState(null)
+  const resetData = useMemo(() => { const query = new URLSearchParams(window.location.search); const token = query.get('customerReset'); return token ? { token, email: query.get('email') || '' } : null }, [])
 
   useEffect(() => {
     fetch(`${API_URL}/api/products?limit=100`)
@@ -246,6 +251,10 @@ function App() {
 
   useEffect(() => setPage(1), [query, category])
   useEffect(() => localStorage.setItem('giacomoni-cart', JSON.stringify(cart)), [cart])
+  useEffect(() => {
+    if (!customerToken) return
+    fetch(`${API_URL}/api/customers/me`, { headers: { Authorization: `Bearer ${customerToken}` } }).then((response) => { if (!response.ok) throw new Error(); return response.json() }).then((data) => setCustomer(data.customer)).catch(() => { localStorage.removeItem('giacomoni-customer-token'); setCustomerToken('') })
+  }, [customerToken])
 
   const categories = useMemo(() => ['Todos', ...new Set(products.map((product) => product.category))], [products])
   const filteredProducts = useMemo(() => {
@@ -287,7 +296,19 @@ function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
+  function saveCustomerSession(data) {
+    localStorage.setItem('giacomoni-customer-token', data.token)
+    setCustomerToken(data.token)
+    setCustomer(data.customer)
+  }
+
+  function logoutCustomer() {
+    localStorage.removeItem('giacomoni-customer-token')
+    setCustomerToken(''); setCustomer(null); setAccountOpen(false)
+  }
+
   if (adminOpen) return <AdminPanel onClose={() => setAdminOpen(false)} />
+  if (accountOpen) return <CustomerAccount customer={customer} token={customerToken} resetData={resetData} onBack={() => setAccountOpen(false)} onSession={saveCustomerSession} onLogout={logoutCustomer} />
 
   return (
     <div className="app-shell">
@@ -295,13 +316,13 @@ function App() {
         <button className="brand brand-button" onClick={() => { setSelectedProduct(null); setCheckoutOpen(false); setCompletedOrder(null) }} aria-label="Página inicial Giacomoni"><span>GIACOMONI</span><small>pijamas & moda íntima</small></button>
         <button className="icon-button mobile-menu" onClick={() => setMenuOpen(!menuOpen)} aria-label="Abrir menu"><Menu size={22} /></button>
         <nav className={menuOpen ? 'nav nav-open' : 'nav'}><button onClick={() => { setSelectedProduct(null); setCheckoutOpen(false); setCompletedOrder(null) }}>Início</button><button onClick={() => { setSelectedProduct(null); setCheckoutOpen(false); setCompletedOrder(null) }}>Produtos</button><a href="#sobre">Sobre</a><button onClick={() => setAdminOpen(true)}>Administração</button></nav>
-        <button className="cart-button" onClick={() => setCartOpen(true)}><ShoppingBag size={20} /><span>Carrinho</span><b>{cartCount}</b></button>
+        <div className="header-actions"><button className="account-button" onClick={() => setAccountOpen(true)}><UserRound size={19} /><span>{customer ? `Olá, ${customer.name.split(' ')[0]}` : 'Entrar'}</span></button><button className="cart-button" onClick={() => setCartOpen(true)}><ShoppingBag size={20} /><span>Carrinho</span><b>{cartCount}</b></button></div>
       </header>
 
       {completedOrder ? (
         <OrderSuccess order={completedOrder.order} customer={completedOrder.customer} onContinue={() => setCompletedOrder(null)} />
       ) : checkoutOpen ? (
-        <Checkout cart={cart} total={cartTotal} onBack={() => { setCheckoutOpen(false); setCartOpen(true) }} onComplete={completeOrder} />
+        <Checkout cart={cart} total={cartTotal} account={customer} customerToken={customerToken} onBack={() => { setCheckoutOpen(false); setCartOpen(true) }} onComplete={completeOrder} />
       ) : selectedProduct ? (
         <ProductDetails product={selectedProduct} onBack={() => setSelectedProduct(null)} onAdd={addToCart} />
       ) : (

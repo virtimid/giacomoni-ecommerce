@@ -81,6 +81,7 @@ export async function createOrder(req, res, next) {
 
     const total = reservedItems.reduce((sum, item) => sum + item.subtotal, 0)
     const order = await Order.create({
+      customerAccount: req.customer?._id || null,
       customer,
       deliveryAddress,
       items: reservedItems,

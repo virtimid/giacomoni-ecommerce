@@ -4,6 +4,7 @@ import { productRouter } from './routes/productRoutes.js'
 import { orderRouter } from './routes/orderRoutes.js'
 import { authRouter } from './routes/authRoutes.js'
 import { adminRouter } from './routes/adminRoutes.js'
+import { customerRouter } from './routes/customerRoutes.js'
 
 export const app = express()
 
@@ -35,6 +36,7 @@ app.use('/api/products', productRouter)
 app.use('/api/orders', orderRouter)
 app.use('/api/auth', authRouter)
 app.use('/api/admin', adminRouter)
+app.use('/api/customers', customerRouter)
 
 app.use((_req, res) => {
   res.status(404).json({ message: 'Rota não encontrada.' })
