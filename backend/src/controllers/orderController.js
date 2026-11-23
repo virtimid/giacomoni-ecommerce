@@ -1,4 +1,5 @@
 import mongoose from 'mongoose'
+import crypto from 'node:crypto'
 import { Order } from '../models/Order.js'
 import { Product } from '../models/Product.js'
 import {
@@ -7,6 +8,7 @@ import {
   normalizeRequestedItems,
   VALID_STATUSES,
 } from '../services/orderRules.js'
+import { createPixPayment, pixIsConfigured } from '../services/mercadoPagoService.js'
 
 function databaseIsAvailable(res) {
   if (mongoose.connection.readyState === 1) return true
@@ -30,9 +32,13 @@ export async function createOrder(req, res, next) {
   if (!databaseIsAvailable(res)) return
 
   const { customer, deliveryAddress, items } = req.body
+  const paymentMethod = req.body.paymentMethod === 'pix' ? 'pix' : 'manual'
+  const payerDocument = String(req.body.payerDocument || '').replace(/\D/g, '')
   if (!customer || !deliveryAddress || !Array.isArray(items) || !items.length) {
     return res.status(400).json({ message: 'Dados do pedido incompletos.' })
   }
+  if (paymentMethod === 'pix' && !pixIsConfigured()) return res.status(503).json({ message: 'O pagamento via Pix ainda não foi ativado pela loja.' })
+  if (paymentMethod === 'pix' && payerDocument.length !== 11) return res.status(400).json({ message: 'Informe um CPF válido para gerar o Pix.' })
 
   const requestedItems = normalizeRequestedItems(items)
   if (!requestedItems) {
@@ -40,6 +46,7 @@ export async function createOrder(req, res, next) {
   }
 
   const reservedItems = []
+  let createdOrder = null
 
   try {
     for (const item of requestedItems) {
@@ -80,6 +87,7 @@ export async function createOrder(req, res, next) {
     }
 
     const total = reservedItems.reduce((sum, item) => sum + item.subtotal, 0)
+    const paymentAccessToken = paymentMethod === 'pix' ? crypto.randomBytes(24).toString('hex') : ''
     const order = await Order.create({
       customerAccount: req.customer?._id || null,
       customer,
@@ -87,7 +95,26 @@ export async function createOrder(req, res, next) {
       items: reservedItems,
       total,
       stockReturned: false,
+      payment: {
+        method: paymentMethod,
+        provider: paymentMethod === 'pix' ? 'mercado_pago' : '',
+        status: paymentMethod === 'pix' ? 'pending' : 'not_required',
+        accessTokenHash: paymentAccessToken ? crypto.createHash('sha256').update(paymentAccessToken).digest('hex') : '',
+      },
     })
+    createdOrder = order
+
+    let publicPayment = { method: 'manual', status: 'not_required' }
+    if (paymentMethod === 'pix') {
+      const apiOrigin = String(process.env.PUBLIC_API_URL || `${req.protocol}://${req.get('host')}`).replace(/\/$/, '')
+      const pix = await createPixPayment({ order, payerDocument, notificationUrl: `${apiOrigin}/api/payments/mercado-pago/webhook` })
+      Object.assign(order.payment, pix)
+      await order.save()
+      publicPayment = {
+        method: 'pix', status: pix.status, qrCode: pix.qrCode, qrCodeBase64: pix.qrCodeBase64,
+        ticketUrl: pix.ticketUrl, expiresAt: pix.expiresAt, accessToken: paymentAccessToken,
+      }
+    }
 
     res.status(201).json({
       message: 'Pedido criado e estoque reservado com sucesso.',
@@ -97,6 +124,7 @@ export async function createOrder(req, res, next) {
         status: order.status,
         createdAt: order.createdAt,
       },
+      payment: publicPayment,
     })
   } catch (error) {
     if (reservedItems.length) {
@@ -106,6 +134,10 @@ export async function createOrder(req, res, next) {
         console.error('Falha ao devolver estoque após erro no pedido:', rollbackError)
       }
     }
+    if (createdOrder) {
+      try { await Order.deleteOne({ _id: createdOrder._id }) } catch (deleteError) { console.error('Falha ao remover pedido sem pagamento:', deleteError) }
+    }
+    if (error.providerStatus) return res.status(502).json({ message: 'Não foi possível gerar o Pix agora. Tente novamente em instantes.' })
     next(error)
   }
 }
@@ -192,6 +224,9 @@ export async function updateOrderStatus(req, res, next) {
       return res.status(409).json({
         message: `Não é possível alterar um pedido ${order.status} para ${nextStatus}.`,
       })
+    }
+    if (['enviado', 'concluído'].includes(nextStatus) && order.payment?.method === 'pix' && order.payment.status !== 'approved') {
+      return res.status(409).json({ message: 'O pedido só pode ser enviado após a confirmação do pagamento Pix.' })
     }
 
     if (nextStatus === 'cancelado' && !order.stockReturned) {

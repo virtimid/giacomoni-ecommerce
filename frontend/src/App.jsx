@@ -100,12 +100,18 @@ function ProductDetails({ product, onBack, onAdd }) {
 function Checkout({ cart, total, onBack, onComplete, account, customerToken }) {
   const [form, setForm] = useState({
     name: account?.name || '', phone: account?.phone || '', email: account?.email || '', zipCode: account?.address?.zipCode || '', street: account?.address?.street || '', number: account?.address?.number || '',
-    complement: account?.address?.complement || '', neighborhood: account?.address?.neighborhood || '', city: account?.address?.city || '', state: account?.address?.state || '',
+    complement: account?.address?.complement || '', neighborhood: account?.address?.neighborhood || '', city: account?.address?.city || '', state: account?.address?.state || '', cpf: '',
   })
   const [errors, setErrors] = useState({})
   const [loadingZip, setLoadingZip] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState('')
+  const [pixEnabled, setPixEnabled] = useState(false)
+  const [paymentMethod, setPaymentMethod] = useState('manual')
+
+  useEffect(() => {
+    fetch(`${API_URL}/api/payments/config`).then((response) => response.json()).then((data) => { setPixEnabled(Boolean(data.pixEnabled)); if (data.pixEnabled) setPaymentMethod('pix') }).catch(() => {})
+  }, [])
 
   function updateField(event) {
     const { name, value } = event.target
@@ -143,6 +149,7 @@ function Checkout({ cart, total, onBack, onComplete, account, customerToken }) {
     if (form.email && !/^\S+@\S+\.\S+$/.test(form.email)) nextErrors.email = 'Informe um e-mail válido.'
     if (form.zipCode.replace(/\D/g, '').length !== 8) nextErrors.zipCode = 'Informe um CEP com 8 números.'
     if (form.phone.replace(/\D/g, '').length < 10) nextErrors.phone = 'Informe um telefone válido.'
+    if (paymentMethod === 'pix' && form.cpf.replace(/\D/g, '').length !== 11) nextErrors.cpf = 'Informe um CPF com 11 números.'
     setErrors(nextErrors)
     return Object.keys(nextErrors).length === 0
   }
@@ -166,11 +173,13 @@ function Checkout({ cart, total, onBack, onComplete, account, customerToken }) {
           items: cart.map((item) => ({
             productId: item._id, size: item.size, color: item.color, quantity: item.quantity,
           })),
+          paymentMethod,
+          payerDocument: paymentMethod === 'pix' ? form.cpf : undefined,
         }),
       })
       const data = await response.json()
       if (!response.ok) throw new Error(data.message || 'Não foi possível finalizar o pedido.')
-      onComplete(data.order, form)
+      onComplete(data.order, form, data.payment)
     } catch (error) {
       setSubmitError(error.message)
     } finally {
@@ -204,6 +213,14 @@ function Checkout({ cart, total, onBack, onComplete, account, customerToken }) {
               <label>Estado<input name="state" value={form.state} maxLength="2" onChange={updateField} />{errors.state && <small>{errors.state}</small>}</label>
             </div>
           </section>
+          <section className="form-section">
+            <div className="form-section-title"><span>3</span><div><h2>Pagamento</h2><p>Escolha como deseja finalizar o pedido.</p></div></div>
+            <div className="payment-options">
+              <label className={paymentMethod === 'pix' ? 'payment-option selected' : 'payment-option'}><input type="radio" name="paymentMethod" value="pix" checked={paymentMethod === 'pix'} disabled={!pixEnabled} onChange={() => setPaymentMethod('pix')} /><div><strong>Pix</strong><span>{pixEnabled ? 'QR Code e Pix copia e cola. Confirmação automática.' : 'Aguardando ativação da conta Mercado Pago.'}</span></div></label>
+              <label className={paymentMethod === 'manual' ? 'payment-option selected' : 'payment-option'}><input type="radio" name="paymentMethod" value="manual" checked={paymentMethod === 'manual'} onChange={() => setPaymentMethod('manual')} /><div><strong>Combinar pagamento</strong><span>O pedido é registrado sem cobrança online.</span></div></label>
+            </div>
+            {paymentMethod === 'pix' && <div className="form-grid payment-document"><label>CPF do pagador<input name="cpf" value={form.cpf} onChange={updateField} inputMode="numeric" placeholder="000.000.000-00" />{errors.cpf && <small>{errors.cpf}</small>}</label></div>}
+          </section>
         </div>
 
         <aside className="order-review">
@@ -211,7 +228,7 @@ function Checkout({ cart, total, onBack, onComplete, account, customerToken }) {
           <div className="review-items">{cart.map((item) => <div className="review-item" key={item.cartId}><img src={item.image} alt="" /><div><strong>{item.name}</strong><span>{item.size} • {item.color} • {item.quantity} un.</span></div><b>{currency.format(item.price * item.quantity)}</b></div>)}</div>
           <div className="review-total"><span>Total</span><strong>{currency.format(total)}</strong></div>
           {submitError && <div className="form-error">{submitError}</div>}
-          <button className="primary-button checkout-submit" disabled={submitting}>{submitting ? 'Finalizando...' : 'Confirmar pedido'}</button>
+          <button className="primary-button checkout-submit" disabled={submitting}>{submitting ? 'Finalizando...' : paymentMethod === 'pix' ? 'Gerar Pix' : 'Confirmar pedido'}</button>
           <small className="privacy-note">Ao confirmar, seus dados serão usados somente para processar e entregar este pedido.</small>
         </aside>
       </form>
@@ -219,7 +236,24 @@ function Checkout({ cart, total, onBack, onComplete, account, customerToken }) {
   )
 }
 
-function OrderSuccess({ order, customer, onContinue }) {
+function OrderSuccess({ order, customer, payment, onContinue }) {
+  const [paymentStatus, setPaymentStatus] = useState(payment?.status || 'not_required')
+  const [copied, setCopied] = useState(false)
+  useEffect(() => {
+    if (payment?.method !== 'pix' || !payment?.accessToken || paymentStatus !== 'pending') return undefined
+    const check = async () => {
+      try { const response = await fetch(`${API_URL}/api/payments/pix/${order.id}?token=${encodeURIComponent(payment.accessToken)}`); const data = await response.json(); if (response.ok) setPaymentStatus(data.payment.status) } catch { /* tenta novamente */ }
+    }
+    const interval = setInterval(check, 5000)
+    return () => clearInterval(interval)
+  }, [order.id, payment, paymentStatus])
+
+  async function copyPix() {
+    await navigator.clipboard.writeText(payment.qrCode)
+    setCopied(true); setTimeout(() => setCopied(false), 2500)
+  }
+
+  if (payment?.method === 'pix') return <main className="success-page"><div className="success-card pix-card"><span className={paymentStatus === 'approved' ? 'success-icon' : 'pix-icon'}>{paymentStatus === 'approved' ? '✓' : 'PIX'}</span><p className="eyebrow">{paymentStatus === 'approved' ? 'Pagamento aprovado' : 'Aguardando pagamento'}</p><h1>{paymentStatus === 'approved' ? 'Pagamento confirmado!' : 'Pague com Pix'}</h1><p>Pedido <strong>#{String(order.id).slice(-6).toUpperCase()}</strong> no valor de <strong>{currency.format(order.total)}</strong>.</p>{paymentStatus === 'pending' && <><img className="pix-qr" src={`data:image/png;base64,${payment.qrCodeBase64}`} alt="QR Code para pagamento Pix" /><label className="pix-copy">Pix copia e cola<textarea readOnly value={payment.qrCode} /><button className="primary-button" onClick={copyPix}>{copied ? 'Código copiado!' : 'Copiar código Pix'}</button></label><small>O status será atualizado automaticamente após o pagamento. O código vence em aproximadamente 30 minutos.</small></>}{['rejected', 'cancelled', 'refunded'].includes(paymentStatus) && <div className="form-error">Este pagamento não está mais disponível. O pedido foi cancelado.</div>}<button className="secondary-button" onClick={onContinue}>Voltar à loja</button></div></main>
   return <main className="success-page"><div className="success-card"><span className="success-icon">✓</span><p className="eyebrow">Pedido recebido</p><h1>Obrigada, {customer.name.split(' ')[0]}!</h1><p>Seu pedido <strong>#{String(order.id).slice(-6).toUpperCase()}</strong> foi registrado e está com status <strong>{order.status}</strong>.</p><div className="success-total"><span>Total do pedido</span><strong>{currency.format(order.total)}</strong></div><button className="primary-button" onClick={onContinue}>Continuar comprando</button></div></main>
 }
 
@@ -295,8 +329,8 @@ function App() {
     document.getElementById('produtos')?.scrollIntoView({ behavior: 'smooth' })
   }
 
-  function completeOrder(order, customer) {
-    setCompletedOrder({ order, customer })
+  function completeOrder(order, customer, payment) {
+    setCompletedOrder({ order, customer, payment })
     setCheckoutOpen(false)
     setCart([])
     window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -326,7 +360,7 @@ function App() {
       </header>
 
       {completedOrder ? (
-        <OrderSuccess order={completedOrder.order} customer={completedOrder.customer} onContinue={() => setCompletedOrder(null)} />
+        <OrderSuccess order={completedOrder.order} customer={completedOrder.customer} payment={completedOrder.payment} onContinue={() => setCompletedOrder(null)} />
       ) : checkoutOpen ? (
         <Checkout cart={cart} total={cartTotal} account={customer} customerToken={customerToken} onBack={() => { setCheckoutOpen(false); setCartOpen(true) }} onComplete={completeOrder} />
       ) : selectedProduct ? (

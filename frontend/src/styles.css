@@ -162,6 +162,21 @@ h2 { font-size: clamp(32px, 4vw, 48px); }
 .privacy-note { display: block; text-align: center; color: #8a777c; line-height: 1.5; margin-top: 13px; }
 .form-error { background: #f9e5e7; color: #92364a; padding: 12px; margin-bottom: 15px; font-size: 13px; line-height: 1.5; }
 .form-success { background: #e8f4ea; color: #28703a; padding: 12px; margin-bottom: 15px; font-size: 13px; line-height: 1.5; }
+.payment-options { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+.payment-option { display: flex; align-items: flex-start; gap: 12px; padding: 18px; border: 1px solid var(--line); background: #fffdfc; cursor: pointer; }
+.payment-option.selected { border-color: var(--wine); box-shadow: 0 0 0 2px rgba(116,54,72,.08); }
+.payment-option:has(input:disabled) { opacity: .55; cursor: not-allowed; }
+.payment-option input { margin-top: 3px; accent-color: var(--wine); }
+.payment-option div { display: flex; flex-direction: column; gap: 5px; }
+.payment-option span { color: #806d72; font-size: 12px; line-height: 1.5; }
+.payment-document { margin-top: 18px; }
+.pix-card { width: min(650px, 100%); }
+.pix-icon { display: grid; place-items: center; width: 68px; height: 68px; margin: 0 auto 22px; border-radius: 50%; background: #daf4ee; color: #167b69; font-size: 16px; font-weight: 800; }
+.pix-qr { display: block; width: min(260px, 100%); margin: 22px auto; image-rendering: crisp-edges; }
+.pix-copy { display: flex; flex-direction: column; gap: 9px; text-align: left; font-size: 13px; font-weight: 700; margin: 18px 0; }
+.pix-copy textarea { width: 100%; min-height: 88px; padding: 11px; border: 1px solid var(--line); resize: none; font-size: 11px; word-break: break-all; }
+.pix-card > small { display: block; color: #806d72; line-height: 1.5; margin: 15px 0; }
+.pix-card > .secondary-button { margin-top: 12px; }
 
 .account-page { min-height: 100vh; padding: 52px clamp(24px, 7vw, 100px) 100px; background: linear-gradient(135deg, #fffaf8, #f7e7e4); }
 .account-layout { width: min(1050px, 100%); margin: 0 auto; display: grid; grid-template-columns: 250px 1fr; gap: 28px; align-items: start; }
@@ -246,6 +261,7 @@ footer { min-height: 170px; padding: 45px clamp(24px, 8vw, 120px); background: #
   .checkout-page { padding-top: 30px; }
   .form-section { padding: 22px; }
   .form-grid { grid-template-columns: 1fr; }
+  .payment-options { grid-template-columns: 1fr; }
   .full-field, .wide-field { grid-column: auto; }
   footer { flex-direction: column; align-items: flex-start; }
   .account-layout { grid-template-columns: 1fr; }

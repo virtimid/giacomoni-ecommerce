@@ -6,6 +6,7 @@ import { authRouter } from './routes/authRoutes.js'
 import { adminRouter } from './routes/adminRoutes.js'
 import { customerRouter } from './routes/customerRoutes.js'
 import { siteContentRouter } from './routes/siteContentRoutes.js'
+import { paymentRouter } from './routes/paymentRoutes.js'
 
 export const app = express()
 
@@ -39,6 +40,7 @@ app.use('/api/auth', authRouter)
 app.use('/api/admin', adminRouter)
 app.use('/api/customers', customerRouter)
 app.use('/api/site-content', siteContentRouter)
+app.use('/api/payments', paymentRouter)
 
 app.use((_req, res) => {
   res.status(404).json({ message: 'Rota não encontrada.' })

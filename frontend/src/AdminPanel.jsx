@@ -300,13 +300,14 @@ export default function AdminPanel({ onClose }) {
           <button type="button" className="secondary-button" onClick={clearOrderFilters}>Limpar</button>
         </form>
         <div className="admin-table-wrap">
-          <table><thead><tr><th>Pedido</th><th>Cliente</th><th>Data</th><th>Itens</th><th>Total</th><th>Status</th><th>Detalhes</th></tr></thead>
+          <table><thead><tr><th>Pedido</th><th>Cliente</th><th>Data</th><th>Itens</th><th>Total</th><th>Pagamento</th><th>Status</th><th>Detalhes</th></tr></thead>
             <tbody>{orders.map((order) => <tr key={order._id}>
               <td>#{order._id.slice(-6).toUpperCase()}</td>
               <td><strong>{order.customer.name}</strong><small>{order.customer.phone}</small><small>{order.customer.email}</small></td>
               <td>{new Date(order.createdAt).toLocaleString('pt-BR')}</td>
               <td>{order.items.reduce((sum, item) => sum + item.quantity, 0)}</td>
               <td>{currency.format(order.total)}</td>
+              <td>{order.payment?.method === 'pix' ? `Pix: ${{ pending: 'aguardando', approved: 'aprovado', rejected: 'recusado', cancelled: 'cancelado', refunded: 'estornado' }[order.payment.status] || order.payment.status}` : 'Combinado'}</td>
               <td><select value={order.status} disabled={['concluído', 'cancelado'].includes(order.status)} onChange={(event) => changeOrderStatus(order._id, event.target.value)}>{(statusOptions[order.status] || [order.status]).map((status) => <option key={status} value={status}>{status.charAt(0).toUpperCase() + status.slice(1)}</option>)}</select></td>
               <td><button onClick={() => setSelectedOrder(order)}><Eye size={15} /> Ver</button></td>
             </tr>)}</tbody>
