@@ -113,6 +113,7 @@ h2 { font-size: clamp(32px, 4vw, 48px); }
 .detail-image { position: relative; min-height: 650px; background: var(--cream); overflow: hidden; }
 .detail-image img { width: 100%; height: 100%; position: absolute; inset: 0; object-fit: cover; }
 .detail-content h1 { font-size: clamp(42px, 5vw, 68px); }
+.product-reference { display: inline-block; margin: 8px 0 2px; color: #806d72; font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
 .detail-price { color: var(--wine); font-size: 25px; font-weight: 700; margin: 20px 0; }
 .detail-description { color: #725f64; line-height: 1.8; padding-bottom: 24px; border-bottom: 1px solid var(--line); }
 .option-group { border: 0; padding: 0; margin: 25px 0; }

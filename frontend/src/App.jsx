@@ -53,6 +53,7 @@ function ProductDetails({ product, onBack, onAdd }) {
         </div>
         <div className="detail-content">
           <p className="eyebrow">{product.category}</p>
+          <span className="product-reference">Ref. {product.reference || 'não informada'}</span>
           <h1>{product.name}</h1>
           <p className="detail-price">{currency.format(product.price)}</p>
           <p className="detail-description">{product.description}</p>
@@ -301,7 +302,9 @@ function App() {
     const normalizedQuery = query.trim().toLocaleLowerCase('pt-BR')
     return products.filter((product) => {
       const matchesCategory = category === 'Todos' || product.category === category
-      return matchesCategory && product.name.toLocaleLowerCase('pt-BR').includes(normalizedQuery)
+      const matchesQuery = product.name.toLocaleLowerCase('pt-BR').includes(normalizedQuery)
+        || String(product.reference || '').toLocaleLowerCase('pt-BR').includes(normalizedQuery)
+      return matchesCategory && matchesQuery
     })
   }, [products, query, category])
 
@@ -373,7 +376,7 @@ function App() {
           </section>
           <section className="benefits" aria-label="Benefícios da loja"><div><strong>Compra segura</strong><span>Seus dados protegidos</span></div><div><strong>Atendimento próximo</strong><span>Conte com a nossa equipe</span></div><div><strong>Seleção especial</strong><span>Qualidade e conforto</span></div></section>
           <section className="catalog" id="produtos">
-            <div className="section-heading"><div><p className="eyebrow">Nosso catálogo</p><h2>Encontre a sua peça favorita</h2></div><label className="search-field"><Search size={18} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar produto" aria-label="Buscar produto" /></label></div>
+            <div className="section-heading"><div><p className="eyebrow">Nosso catálogo</p><h2>Encontre a sua peça favorita</h2></div><label className="search-field"><Search size={18} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar por nome ou referência" aria-label="Buscar produto por nome ou referência" /></label></div>
             <div className="filters" aria-label="Categorias">{categories.map((item) => <button key={item} className={category === item ? 'filter-active' : ''} onClick={() => setCategory(item)}>{item}</button>)}</div>
             <div className="catalog-status"><span>{filteredProducts.length} produto(s) encontrado(s)</span><span>Página {page} de {totalPages}</span></div>
             <div className="product-grid">
@@ -381,7 +384,7 @@ function App() {
                 <article className="product-card" key={product._id}>
                   <button className="product-link" onClick={() => { setSelectedProduct(product); window.scrollTo({ top: 0, behavior: 'smooth' }) }} aria-label={`Ver detalhes de ${product.name}`}>
                     <div className="product-image-wrap"><img src={product.image} alt={product.name} />{product.featured && <span className="tag">Destaque</span>}</div>
-                    <div className="product-info"><small>{product.category}</small><h3>{product.name}</h3><p>{product.description}</p><div className="product-footer"><strong>{currency.format(product.price)}</strong><span>Ver detalhes</span></div></div>
+                    <div className="product-info"><small>{product.category}{product.reference ? ` • Ref. ${product.reference}` : ''}</small><h3>{product.name}</h3><p>{product.description}</p><div className="product-footer"><strong>{currency.format(product.price)}</strong><span>Ver detalhes</span></div></div>
                   </button>
                 </article>
               ))}

@@ -1,5 +1,6 @@
 import mongoose from 'mongoose'
 import { Product } from '../models/Product.js'
+import { escapeRegularExpression } from '../services/orderRules.js'
 
 export async function listProducts(req, res, next) {
   try {
@@ -12,7 +13,13 @@ export async function listProducts(req, res, next) {
 
     const filter = { active: true }
     if (req.query.category) filter.category = req.query.category
-    if (req.query.search) filter.name = { $regex: req.query.search, $options: 'i' }
+    if (req.query.search) {
+      const search = escapeRegularExpression(String(req.query.search).trim())
+      filter.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { reference: { $regex: search, $options: 'i' } },
+      ]
+    }
 
     const page = Math.max(Number.parseInt(req.query.page, 10) || 1, 1)
     const limit = Math.min(Math.max(Number.parseInt(req.query.limit, 10) || 8, 1), 100)
@@ -41,15 +48,18 @@ export async function getProduct(req, res, next) {
 
 export async function createProduct(req, res, next) {
   try {
+    if (!String(req.body.reference || '').trim()) return res.status(400).json({ message: 'Informe a referência do produto.' })
     const product = await Product.create(req.body)
     res.status(201).json(product)
   } catch (error) {
+    if (error.code === 11000) return res.status(409).json({ message: 'Já existe um produto com esta referência.' })
     next(error)
   }
 }
 
 export async function updateProduct(req, res, next) {
   try {
+    if (!String(req.body.reference || '').trim()) return res.status(400).json({ message: 'Informe a referência do produto.' })
     const product = await Product.findByIdAndUpdate(req.params.id, req.body, {
       new: true,
       runValidators: true,
@@ -57,6 +67,7 @@ export async function updateProduct(req, res, next) {
     if (!product) return res.status(404).json({ message: 'Produto não encontrado.' })
     res.json(product)
   } catch (error) {
+    if (error.code === 11000) return res.status(409).json({ message: 'Já existe um produto com esta referência.' })
     next(error)
   }
 }
