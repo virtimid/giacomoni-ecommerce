@@ -52,7 +52,6 @@ export async function createProduct(req, res, next) {
     const product = await Product.create(req.body)
     res.status(201).json(product)
   } catch (error) {
-    if (error.code === 11000) return res.status(409).json({ message: 'Já existe um produto com esta referência.' })
     next(error)
   }
 }
@@ -67,7 +66,6 @@ export async function updateProduct(req, res, next) {
     if (!product) return res.status(404).json({ message: 'Produto não encontrado.' })
     res.json(product)
   } catch (error) {
-    if (error.code === 11000) return res.status(409).json({ message: 'Já existe um produto com esta referência.' })
     next(error)
   }
 }
